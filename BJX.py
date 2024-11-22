@@ -65,6 +65,12 @@ def find_province_for_city(city_name):
         return match.iloc[0]['province']
     return None
 
+# 去重并规范化
+def deduplicate_and_normalize(items):
+    """去重并保持原有顺序"""
+    seen = set()
+    return [item for item in items if not (item in seen or seen.add(item))]
+
 # 新闻爬取逻辑
 def collect_news(start_date, end_date):
     start_date = datetime.strptime(start_date, "%Y-%m-%d")
@@ -84,7 +90,7 @@ def collect_news(start_date, end_date):
                 title_text = titles[i].text
 
                 # 过滤关键字
-                filter_keywords = ["废", "污", "环境", "公示", "空气", "汇总", "解读", "秸秆"]
+                filter_keywords = ["废", "污", "环境", "公示", "空气", "汇总", "解读", "秸秆", "垃圾"]
                 if any(keyword in title_text for keyword in filter_keywords):
                     continue
 
@@ -121,23 +127,34 @@ def collect_news(start_date, end_date):
                         pass
 
                     # 提取省市信息
-                    found_provinces = set(province_regex.findall(title_text))
-                    found_cities = set(city_regex.findall(title_text))
+                    found_provinces = province_regex.findall(title_text)
+                    found_cities = city_regex.findall(title_text)
 
-                    # 补全省信息
-                    if found_cities and not found_provinces:
-                        province_from_city = find_province_for_city(found_cities[0])
+                    # 筛选有效的省份
+                    valid_provinces = set(df_mapping['province'].tolist())
+                    valid_cities = set(df_mapping['city'].tolist())
+
+                    # 筛选有效的省份和城市，并只保留第一个
+                    first_province = next((province for province in found_provinces if province in valid_provinces),
+                                          None)
+                    first_city = next((city for city in found_cities if city in valid_cities), None)
+
+                    # 补全省信息（如果市名匹配但无省名）
+                    if first_city and not first_province:
+                        province_from_city = find_province_for_city(first_city)
                         if province_from_city:
-                            found_provinces.append(province_from_city)
+                            first_province = province_from_city
 
-                    province_text = ", ".join(found_provinces) if found_provinces else None
-                    city_text = ", ".join(found_cities) if found_cities else None
+                    # 确保最终记录的省和市信息
+                    province_text = first_province
+                    city_text = first_city
 
                     # 插入数据库
                     data = [
-                        title_text, date_text, province_text, city_text, ", ".join(keywords), content_text[:300], title_url
+                        title_text, date_text, province_text, city_text, ", ".join(keywords), content_text[:300],
+                        title_url
                     ]
-                    database_manager.insert_article(data)  # 调用 database_manager 的插入函数
+                    database_manager.insert_article(data)
                     print(f"文章已录入：{title_text}")
 
                     driver.close()
@@ -180,7 +197,7 @@ def collect_yesterday_news():
 
 # 定时任务调度线程
 def schedule_jobs():
-    schedule.every().day.at("16:55").do(collect_yesterday_news)
+    schedule.every().day.at("08:30").do(collect_yesterday_news)
     while True:
         schedule.run_pending()
         time.sleep(1)

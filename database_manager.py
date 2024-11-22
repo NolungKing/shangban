@@ -31,11 +31,18 @@ def insert_article(data, db_name="news_data.db"):
     connection = sqlite3.connect(db_name)
     cursor = connection.cursor()
 
+    # 保证省市字段仅保留第一条信息
+    province_text, city_text = data[2], data[3]  # 省市字段是 data[2] 和 data[3]
+    if province_text:
+        province_text = province_text.split(",")[0].strip()  # 仅保留第一个省
+    if city_text:
+        city_text = city_text.split(",")[0].strip()  # 仅保留第一个市
+
     # 插入数据
     cursor.execute('''
         INSERT OR IGNORE INTO articles (title, date, province, city, keywords, summary, url)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-    ''', data)
+    ''', (data[0], data[1], province_text, city_text, data[4], data[5], data[6]))
 
     connection.commit()
     connection.close()

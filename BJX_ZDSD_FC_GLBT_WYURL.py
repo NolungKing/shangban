@@ -84,7 +84,7 @@ def collect_news(start_date, end_date):
                 title_text = titles[i].text
 
                 # 过滤关键字
-                filter_keywords = ["废", "污", "环境", "公示", "空气", "汇总", "解读", "秸秆"]
+                filter_keywords = ["废", "污", "环境", "公示", "空气", "汇总", "解读", "秸秆", "垃圾"]
                 if any(keyword in title_text for keyword in filter_keywords):
                     continue
 

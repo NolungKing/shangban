@@ -81,9 +81,57 @@ class DatabaseManagerApp:
         self.delete_button = tk.Button(pagination_frame, text="删除选中记录", command=self.delete_record)
         self.delete_button.pack(side=tk.LEFT, padx=5)
 
+        self.first_page_button = tk.Button(pagination_frame, text="第一页", command=self.first_page)
+        self.first_page_button.pack(side=tk.LEFT, padx=5)
+
+        self.last_page_button = tk.Button(pagination_frame, text="最后一页", command=self.last_page)
+        self.last_page_button.pack(side=tk.LEFT, padx=5)
+
+        self.sort_button = tk.Button(pagination_frame, text="按日期排序", command=self.sort_by_date)
+        self.sort_button.pack(side=tk.LEFT, padx=5)
+
+        self.delete_all_button = tk.Button(pagination_frame, text="删除全部", command=self.delete_all_records)
+        self.delete_all_button.pack(side=tk.LEFT, padx=5)
+
         # 初始化数据
         self.all_data = pd.DataFrame()  # 保存筛选后的全部数据
         self.query_all_data()
+
+    # 删除全部记录
+    def delete_all_records(self):
+        if not messagebox.askyesno("确认", "确定要删除全部记录吗？此操作不可撤销！"):
+            return
+
+        try:
+            delete_query = "DELETE FROM articles"
+            update_record(delete_query)
+            messagebox.showinfo("成功", "所有记录已被删除")
+            self.query_all_data()  # 刷新数据
+        except Exception as e:
+            messagebox.showerror("错误", f"删除失败：{e}")
+
+    # 按日期排序
+    def sort_by_date(self):
+        if self.all_data.empty:
+            messagebox.showwarning("警告", "没有数据可排序")
+            return
+
+        # 按日期升序排序
+        self.all_data = self.all_data.sort_values(by="Date", ascending=True, na_position="last")
+        self.current_page = 0
+        self.update_table()
+        messagebox.showinfo("成功", "已按日期升序排序")
+
+    # 跳转到第一页
+    def first_page(self):
+        self.current_page = 0
+        self.update_table()
+
+    # 跳转到最后一页
+    def last_page(self):
+        total_pages = max(1, (len(self.all_data) + PAGE_SIZE - 1) // PAGE_SIZE)
+        self.current_page = total_pages - 1
+        self.update_table()
 
     # 查询所有数据
     def query_all_data(self):
