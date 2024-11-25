@@ -71,21 +71,25 @@ def deduplicate_and_normalize(items):
     seen = set()
     return [item for item in items if not (item in seen or seen.add(item))]
 
-# 新闻爬取逻辑
 def collect_news(start_date, end_date):
     start_date = datetime.strptime(start_date, "%Y-%m-%d")
     end_date = datetime.strptime(end_date, "%Y-%m-%d")
 
     service = Service('/Users/dylanw/Downloads/chromedriver-mac-x64/chromedriver')
     driver = webdriver.Chrome(service=service)
-    wait = WebDriverWait(driver, 20)
+    wait = WebDriverWait(driver, 50)
 
-    max_pages = 10
+    max_pages = 100
+    consecutive_invalid_pages = 0  # 连续无效页数计数
+    max_consecutive_invalid_pages = 50  # 允许的最大连续无效页数
+
     for page_num in range(1, max_pages + 1):
         url = f"https://news.bjx.com.cn/zc/{page_num}/"
         driver.get(url)
         try:
             titles = wait.until(ec.presence_of_all_elements_located((By.CSS_SELECTOR, "a[title]")))
+            page_has_valid_articles = False  # 当前页是否有有效文章
+
             for i in range(len(titles)):
                 title_text = titles[i].text
 
@@ -104,6 +108,9 @@ def collect_news(start_date, end_date):
 
                 # 检查日期范围
                 if start_date <= date_obj <= end_date:
+                    page_has_valid_articles = True  # 标记当前页有有效文章
+                    consecutive_invalid_pages = 0  # 重置无效页计数
+
                     title_url = titles[i].get_attribute("href")
 
                     # 打开次级页面并提取内容
@@ -135,8 +142,7 @@ def collect_news(start_date, end_date):
                     valid_cities = set(df_mapping['city'].tolist())
 
                     # 筛选有效的省份和城市，并只保留第一个
-                    first_province = next((province for province in found_provinces if province in valid_provinces),
-                                          None)
+                    first_province = next((province for province in found_provinces if province in valid_provinces), None)
                     first_city = next((city for city in found_cities if city in valid_cities), None)
 
                     # 补全省信息（如果市名匹配但无省名）
@@ -159,6 +165,14 @@ def collect_news(start_date, end_date):
 
                     driver.close()
                     driver.switch_to.window(driver.window_handles[0])
+
+            # 如果当前页没有有效文章
+            if not page_has_valid_articles:
+                consecutive_invalid_pages += 1
+                print(f"页面 {page_num} 无有效文章，连续无效页数：{consecutive_invalid_pages}")
+                if consecutive_invalid_pages >= max_consecutive_invalid_pages:
+                    print("连续无效页数达到最大限制，提前终止爬取")
+                    break
 
         except Exception as e:
             print(f"错误：{e}")

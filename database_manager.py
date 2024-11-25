@@ -47,12 +47,17 @@ def insert_article(data, db_name="news_data.db"):
     connection.commit()
     connection.close()
 
-# 查询所有文章
-def query_all_articles(db_name="news_data.db"):
+# 查询所有文章，支持排序
+def query_all_articles(order_by=None, ascending=True, db_name="news_data.db"):
     connection = sqlite3.connect(db_name)
     cursor = connection.cursor()
 
-    cursor.execute('SELECT * FROM articles')
+    query = 'SELECT * FROM articles'
+    if order_by:
+        order = 'ASC' if ascending else 'DESC'
+        query += f' ORDER BY {order_by} {order}'
+
+    cursor.execute(query)
     articles = cursor.fetchall()
 
     connection.close()
